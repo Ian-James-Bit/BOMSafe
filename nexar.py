@@ -1,10 +1,14 @@
 import os
 import sys
+from typing import Any
+
+from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
 
 TOKEN_URL = "https://identity.nexar.com/connect/token"
+GRAPHQL_URL = "https://api.nexar.com/graphql"
 
 # get temp access token
 def get_access_token():
@@ -70,3 +74,79 @@ def get_access_token():
     print(f"Granted scope: {scope}")
 
     return access_token
+
+#getting the GraphQL query text from the queries directory
+QUERY_DIRECTORY = Path(__file__).parent / "queries"
+
+def load_query(filename: str) -> str:
+    query_path = QUERY_DIRECTORY / filename
+    return query_path.read_text(encoding="utf-8")
+
+PART_OFFERS_QUERY = load_query("part_offers.graphql")
+
+"""
+Send a GraphQL query to Nexar.
+
+access_token: Temporary Nexar access token.
+query: GraphQL query text.
+variables: Values inserted into the GraphQL query.
+
+Returns: The GraphQL response's data section.
+"""
+def execute_graphql(access_token: str,query: str,variables: dict[str, Any]):
+    try:
+        response = requests.post(
+            GRAPHQL_URL,
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json",
+                "User-Agent": "nexar-bom-tool/0.1",
+            },
+            json={
+                "query": query,
+                "variables": variables,
+            },
+            timeout=60,
+        )
+
+        response.raise_for_status()
+
+    except requests.RequestException as error:
+        raise RuntimeError(
+            f"GraphQL request failed: {error}"
+        ) from error
+
+    response_data = response.json()
+
+    # GraphQL can return HTTP 200 but still report query errors.
+    if response_data.get("errors"):
+        raise RuntimeError(
+            f"GraphQL errors: {response_data['errors']}"
+        )
+
+    data = response_data.get("data")
+
+    if data is None:
+        raise RuntimeError(
+            "Nexar returned no data."
+        )
+
+    return data
+
+#Retrieve supplier offers for one manufacturer part number.
+def get_part_offers(access_token: str,mpn: str):
+    variables = {
+        "queries": [
+            {
+                "mpn": mpn,
+                "start": 0,
+                "limit": 3,
+            }
+        ]
+    }
+
+    return execute_graphql(
+        access_token=access_token,
+        query=PART_OFFERS_QUERY,
+        variables=variables,
+    )

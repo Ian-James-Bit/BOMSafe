@@ -1,0 +1,38 @@
+query GetPartOffers($queries: [SupPartMatchQuery!]!) {
+  supMultiMatch(
+    country: "US"
+    currency: "USD"
+    queries: $queries
+  ) {
+    hits
+    parts {
+      mpn
+      name
+
+      manufacturer {
+        name
+      }
+
+      sellers(authorizedOnly: true) {
+        company {
+          id
+          name
+        }
+
+        offers {
+          sku
+          inventoryLevel
+          moq
+          packaging
+          clickUrl
+
+          prices {
+            quantity
+            convertedPrice
+            convertedCurrency
+          }
+        }
+      }
+    }
+  }
+}
