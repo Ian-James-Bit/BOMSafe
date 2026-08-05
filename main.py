@@ -1,11 +1,21 @@
 import argparse
-import json
 from pathlib import Path
 
 import excel_input
+import excel_output
+import nexar
+import json
 
+# reads the options and file path you type when running the program in the terminal.
+# EX: python main.py uploads/bom.xlsx --sheet BOM
 def get_arguments():
     parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--response-file",
+        type=Path,
+        help="Use a previously saved Nexar JSON response instead of calling the API.",
+    )
 
     parser.add_argument(
         "excel_file",
@@ -19,6 +29,7 @@ def get_arguments():
     )
 
     return parser.parse_args()
+
 
 def main():
     arguments = get_arguments()
@@ -34,14 +45,66 @@ def main():
             result_limit=1,
         )
 
-    except (FileNotFoundError, OSError, ValueError) as error:
-        print(f"Could not process workbook: {error}")
+        if arguments.response_file:
+            with arguments.response_file.open(
+                "r",
+                encoding="utf-8",
+            ) as response_file:
+                nexar_data = json.load(response_file)
+
+        else:
+            access_token = nexar.get_access_token()
+
+            nexar_data = nexar.get_part_offers(
+                access_token=access_token,
+                variables=nexar_variables,
+            )
+
+            response_file = (
+                Path("output")
+                / f"{arguments.excel_file.stem}_nexar_response.json"
+            )
+
+            response_file.parent.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+
+            with response_file.open(
+                "w",
+                encoding="utf-8",
+            ) as saved_response:
+                json.dump(
+                    nexar_data,
+                    saved_response,
+                    indent=2,
+                )
+
+            print(f"Saved Nexar response: {response_file}")
+
+        output_file = (
+            Path("output")
+            / f"{arguments.excel_file.stem}_results.xlsx"
+        )
+
+        created_file = excel_output.write_bom_results(
+            input_file=arguments.excel_file,
+            output_file=output_file,
+            nexar_data=nexar_data,
+            nexar_variables=nexar_variables,
+            sheet_name=arguments.sheet,
+        )
+
+    except (
+        FileNotFoundError,
+        OSError,
+        RuntimeError,
+        ValueError,
+    ) as error:
+        print(f"Could not process BOM: {error}")
         return
 
-    print("BOM rows:")
-    print(json.dumps(bom_rows, indent=2))
+    print(f"Created results file: {created_file}")
 
-    print("\nNexar variables:")
-    print(json.dumps(nexar_variables, indent=2))
 
 main()

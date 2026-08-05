@@ -1,9 +1,14 @@
+# holds functions for reading an Excel file and extracting MPN and supplier data,
+# as well as building variables for a Nexar supMultiMatch query (request sent to API).
+
 from pathlib import Path
 from typing import Any
 
+# for excel file reading
 from openpyxl import load_workbook
 
-#different things to call the same column header in the Excel file. More logic late for extra stuff
+# different things to call the same column header in the Excel file for retrieval purposes
+# more logic later on for symbols ect
 HEADER_ALIASES = {
     "mpn": {
         "mpn",
@@ -20,8 +25,8 @@ HEADER_ALIASES = {
     },
 }
 
-#Convert an Excel cell into clean text.
-def clean_cell(value: Any):
+# Convert an Excel cell into clean text for use.
+def clean_cell(value):
     if value is None:
         return ""
 
@@ -32,7 +37,7 @@ def clean_cell(value: Any):
     return str(value).strip().strip("'\"")
 
 # Normalize a heading by removing spaces and punctuation.
-def normalize_header(value: Any):
+def normalize_header(value):
     header = clean_cell(value).casefold()
 
     return "".join(
@@ -41,22 +46,36 @@ def normalize_header(value: Any):
         if character.isalnum()
     )
 
-# Find one MPN column and all supplier columns.
+#Find one MPN column and all supplier columns.
 def find_column_positions(headers):
     mpn_column: int | None = None
     supplier_columns: list[int] = []
+
+    supplier_header_names = (
+        "supplier",
+        "suppliername",
+        "distributor",
+        "distributorname",
+    )
 
     for column_index, header in enumerate(headers):
         normalized_header = normalize_header(header)
 
         if normalized_header in HEADER_ALIASES["mpn"]:
             mpn_column = column_index
+            continue
 
-        elif (
-            normalized_header.startswith("supplier")
-            or normalized_header.startswith("distributor")
-        ):
-            supplier_columns.append(column_index)
+        for supplier_header in supplier_header_names:
+            supplier_number = normalized_header.removeprefix(
+                supplier_header
+            )
+
+            if (
+                normalized_header == supplier_header
+                or supplier_number.isdigit()
+            ):
+                supplier_columns.append(column_index)
+                break
 
     if mpn_column is None:
         raise ValueError("Could not find an MPN column.")
@@ -68,8 +87,8 @@ def find_column_positions(headers):
 
     return mpn_column, supplier_columns
 
-#Read MPN and supplier data from a user-provided Excel workbook.
-def read_bom(file_path: str | Path,sheet_name: str | None = None,):
+#Read MPN and supplier data from Excel sheet
+def read_bom(file_path,sheet_name: str | None = None,):
     path = Path(file_path)
 
     if not path.exists():
@@ -117,9 +136,7 @@ def read_bom(file_path: str | Path,sheet_name: str | None = None,):
                 "The selected worksheet is empty."
             )
 
-        mpn_column, supplier_columns = find_column_positions(
-            headers
-        )
+        mpn_column, supplier_columns = find_column_positions(headers)
 
         bom_rows: list[dict[str, Any]] = []
 

@@ -1,3 +1,4 @@
+#holds functions for interacting with the Nexar API, including authentication and GraphQL queries.
 import os
 from typing import Any
 
@@ -77,7 +78,7 @@ def get_access_token():
 #getting the GraphQL query text from the queries directory
 QUERY_DIRECTORY = Path(__file__).parent / "queries"
 
-def load_query(filename: str) -> str:
+def load_query(filename):
     query_path = QUERY_DIRECTORY / filename
     return query_path.read_text(encoding="utf-8")
 
@@ -85,14 +86,9 @@ PART_OFFERS_QUERY = load_query("part_offers.graphql")
 
 """
 Send a GraphQL query to Nexar.
-
-access_token: Temporary Nexar access token.
-query: GraphQL query text.
 variables: Values inserted into the GraphQL query.
-
-Returns: The GraphQL response's data section.
 """
-def execute_graphql(access_token: str,query: str,variables: dict[str, Any]):
+def execute_graphql(access_token,query,variables):
     try:
         response = requests.post(
             GRAPHQL_URL,
@@ -132,18 +128,8 @@ def execute_graphql(access_token: str,query: str,variables: dict[str, Any]):
 
     return data
 
-#Retrieve supplier offers for one manufacturer part number.
-def get_part_offers(access_token: str,mpn: str):
-    variables = {
-        "queries": [
-            {
-                "mpn": mpn,
-                "start": 0, #minimum index of the first hit to return.
-                "limit": 1, #how many hits are returned per query.
-            }
-        ]
-    }
-
+#sends query and returns data from the Nexar API
+def get_part_offers(access_token,variables):
     return execute_graphql(
         access_token=access_token,
         query=PART_OFFERS_QUERY,

@@ -1,8 +1,17 @@
+# holds functions for sorting to get stock and pricing information and normalizing data recieved from Nexar API 
 from typing import Any
 
-#sort data to get supplier stock and pricing from a Nexar supMultiMatch response using a supplier name.
-def get_supplier_stock_and_pricing(nexar_data: dict[str, Any],supplier_name: str):
-    requested_supplier = supplier_name.strip().casefold()
+#Normalize a supplier name by removing spaces and punctuation.
+def normalize_supplier_name(supplier_name):
+    return "".join(
+        character
+        for character in supplier_name.casefold()
+        if character.isalnum()
+    )
+
+#get supplier stock and pricing using a supplier name.
+def get_supplier_stock_and_pricing(nexar_data,supplier_name):
+    requested_supplier = normalize_supplier_name(supplier_name)
     results: list[dict[str, Any]] = []
 
     match_groups = nexar_data.get("supMultiMatch") or []
@@ -17,7 +26,7 @@ def get_supplier_stock_and_pricing(nexar_data: dict[str, Any],supplier_name: str
                 company = seller.get("company") or {}
                 returned_name = company.get("name") or ""
 
-                if returned_name.strip().casefold() != requested_supplier:
+                if normalize_supplier_name(returned_name) != requested_supplier:
                     continue
 
                 offers = seller.get("offers") or []
@@ -47,11 +56,8 @@ def get_supplier_stock_and_pricing(nexar_data: dict[str, Any],supplier_name: str
 
     return results
 
-def get_returned_supplier_names(
-    nexar_data: dict[str, Any],
-) -> list[str]:
-    """Return the supplier names present in a Nexar response."""
-
+# Return the supplier names thats in a Nexar response
+def get_returned_supplier_names(nexar_data):
     supplier_names: list[str] = []
 
     match_groups = nexar_data.get("supMultiMatch") or []
