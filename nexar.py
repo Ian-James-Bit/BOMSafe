@@ -1,5 +1,4 @@
 import os
-import sys
 from typing import Any
 
 from pathlib import Path
@@ -139,8 +138,8 @@ def get_part_offers(access_token: str,mpn: str):
         "queries": [
             {
                 "mpn": mpn,
-                "start": 0,
-                "limit": 3,
+                "start": 0, #minimum index of the first hit to return.
+                "limit": 1, #how many hits are returned per query.
             }
         ]
     }
