@@ -1,9 +1,9 @@
 import argparse
 from pathlib import Path
 
-import excel_input
-import excel_output
-import nexar
+import src.excel.excel_input as excel_input
+import src.excel.excel_output as excel_output
+import src.nexar.nexar as nexar
 import json
 
 # reads the options and file path you type when running the program in the terminal.

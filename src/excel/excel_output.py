@@ -6,8 +6,8 @@ from openpyxl import load_workbook
 from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter
 
-import excel_input
-import sort
+import src.excel.excel_input as excel_input
+import src.nexar.utilities.sort as sort
 
 #Convert supplier stock results into Excel text.
 def format_stock(supplier_results):
