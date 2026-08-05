@@ -1,52 +1,47 @@
-import nexar
+import argparse
 import json
-import sort
+from pathlib import Path
+
+import excel_input
+
+def get_arguments():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "excel_file",
+        type=Path,
+        help="Path to the Excel BOM file.",
+    )
+
+    parser.add_argument(
+        "--sheet",
+        help="Optional worksheet name.",
+    )
+
+    return parser.parse_args()
 
 def main():
-    mpn = input("Enter an MPN: ").strip()
-
-    if not mpn:
-        print("You must enter an MPN.")
-        return
-
-    supplier_name = input("Enter a supplier name: ").strip()
-
-    if not supplier_name:
-        print("You must enter a supplier name.")
-        return
+    arguments = get_arguments()
 
     try:
-        access_token = nexar.get_access_token()
-
-        data = nexar.get_part_offers(access_token=access_token,mpn=mpn)
-
-        # debugging: print the raw Nexar response to the console.
-        # print("\nRAW NEXAR RESPONSE:")
-        # print(json.dumps(data, indent=2))
-        
-    except RuntimeError as error:
-        print(f"Nexar request failed: {error}")
-        return
-
-    supplier_results = sort.get_supplier_stock_and_pricing(nexar_data=data,supplier_name=supplier_name)
-
-    if not supplier_results:
-        print(
-            f"No stock or pricing data was returned "
-            f"for supplier '{supplier_name}'."
+        bom_rows = excel_input.read_bom(
+            file_path=arguments.excel_file,
+            sheet_name=arguments.sheet,
         )
 
-        returned_suppliers = sort.get_returned_supplier_names(data)
+        nexar_variables = excel_input.build_nexar_variables(
+            bom_rows=bom_rows,
+            result_limit=1,
+        )
 
-        print("Suppliers returned by Nexar:")
+    except (FileNotFoundError, OSError, ValueError) as error:
+        print(f"Could not process workbook: {error}")
+        return
 
-        if returned_suppliers:
-            for supplier in returned_suppliers:
-                print(f"- {supplier}")
-        else:
-            print("- No suppliers were returned.")
-            return
+    print("BOM rows:")
+    print(json.dumps(bom_rows, indent=2))
 
-    print(json.dumps(supplier_results, indent=2))
+    print("\nNexar variables:")
+    print(json.dumps(nexar_variables, indent=2))
 
 main()
