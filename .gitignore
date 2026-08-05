@@ -216,3 +216,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Private BOMs and generated results
+data/
+output/
+*.xlsx
