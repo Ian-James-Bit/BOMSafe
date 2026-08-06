@@ -1,8 +1,8 @@
 import argparse
 from pathlib import Path
 
-import src.excel.excel_input as excel_input
-import src.excel.excel_output as excel_output
+import src.excel.input as input
+import src.excel.output as output
 import src.nexar.nexar as nexar
 import json
 
@@ -35,15 +35,12 @@ def main():
     arguments = get_arguments()
 
     try:
-        bom_rows = excel_input.read_bom(
+        bom_rows = input.read_bom(
             file_path=arguments.excel_file,
             sheet_name=arguments.sheet,
         )
 
-        nexar_variables = excel_input.build_nexar_variables(
-            bom_rows=bom_rows,
-            result_limit=1,
-        )
+        nexar_variables = input.build_nexar_variables(bom_rows=bom_rows,result_limit=1)
 
         if arguments.response_file:
             with arguments.response_file.open(
@@ -55,25 +52,13 @@ def main():
         else:
             access_token = nexar.get_access_token()
 
-            nexar_data = nexar.get_part_offers(
-                access_token=access_token,
-                variables=nexar_variables,
-            )
+            nexar_data = nexar.get_part_offers(access_token=access_token,variables=nexar_variables)
 
-            response_file = (
-                Path("output")
-                / f"{arguments.excel_file.stem}_nexar_response.json"
-            )
+            response_file = (Path("output")/ f"{arguments.excel_file.stem}_nexar_response.json")
 
-            response_file.parent.mkdir(
-                parents=True,
-                exist_ok=True,
-            )
+            response_file.parent.mkdir(parents=True,exist_ok=True,)
 
-            with response_file.open(
-                "w",
-                encoding="utf-8",
-            ) as saved_response:
+            with response_file.open("w",encoding="utf-8",) as saved_response:
                 json.dump(
                     nexar_data,
                     saved_response,
@@ -82,12 +67,9 @@ def main():
 
             print(f"Saved Nexar response: {response_file}")
 
-        output_file = (
-            Path("output")
-            / f"{arguments.excel_file.stem}_results.xlsx"
-        )
+        output_file = (Path("output")/ f"{arguments.excel_file.stem}_results.xlsx")
 
-        created_file = excel_output.write_bom_results(
+        created_file = output.write_bom_results(
             input_file=arguments.excel_file,
             output_file=output_file,
             nexar_data=nexar_data,

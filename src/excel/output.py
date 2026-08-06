@@ -6,7 +6,7 @@ from openpyxl import load_workbook
 from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter
 
-import src.excel.excel_input as excel_input
+import excel.input as input
 import src.nexar.utilities.sort as sort
 
 #Convert supplier stock results into Excel text.
@@ -17,10 +17,7 @@ def format_stock(supplier_results):
     stock_values: list[str] = []
     multiple_offers = len(supplier_results) > 1
 
-    for offer_number, supplier_result in enumerate(
-        supplier_results,
-        start=1,
-    ):
+    for offer_number, supplier_result in enumerate(supplier_results,start=1):
         stock = supplier_result.get("stock")
 
         if stock is None:
@@ -29,9 +26,7 @@ def format_stock(supplier_results):
             stock_text = str(stock)
 
         if multiple_offers:
-            stock_text = (
-                f"Offer {offer_number}: {stock_text}"
-            )
+            stock_text = (f"Offer {offer_number}: {stock_text}")
 
         stock_values.append(stock_text)
 
@@ -46,10 +41,7 @@ def format_pricing(supplier_results):
     pricing_values: list[str] = []
     multiple_offers = len(supplier_results) > 1
 
-    for offer_number, supplier_result in enumerate(
-        supplier_results,
-        start=1,
-    ):
+    for offer_number, supplier_result in enumerate(supplier_results,start=1):
         prices = supplier_result.get("pricing") or []
         price_breaks: list[str] = []
 
@@ -94,9 +86,7 @@ def build_match_groups_by_mpn(nexar_data,nexar_variables):
     match_groups_by_mpn: dict[str, dict[str, Any]] = {}
 
     for query_index, query in enumerate(queries):
-        mpn = excel_input.clean_cell(
-            query.get("mpn")
-        )
+        mpn = input.clean_cell(query.get("mpn"))
 
         if query_index < len(match_groups):
             match_group = match_groups[query_index]
@@ -119,27 +109,24 @@ def write_bom_results(input_file,output_file,nexar_data,nexar_variables,sheet_na
             sheet = workbook.active
         else:
             if sheet_name not in workbook.sheetnames:
-                raise ValueError(
-                    f"Worksheet '{sheet_name}' was not found."
-                )
+                raise ValueError(f"Worksheet '{sheet_name}' was not found.")
 
             sheet = workbook[sheet_name]
 
         original_max_column = sheet.max_column
 
-        headers = tuple(
-            sheet.cell(
-                row=1,
-                column=column_number,
-            ).value
-            for column_number in range(
-                1,
-                original_max_column + 1,
-            )
-        )
+        headers_list = []
+
+        # Read every header cell from the first row.
+        for column_number in range(1,original_max_column + 1):
+            header = sheet.cell(row=1,column=column_number).value
+
+            headers_list.append(header)
+
+        headers = tuple(headers_list)
 
         mpn_column, supplier_columns = (
-            excel_input.find_column_positions(headers)
+            input.find_column_positions(headers)
         )
 
         match_groups_by_mpn = build_match_groups_by_mpn(
@@ -149,18 +136,11 @@ def write_bom_results(input_file,output_file,nexar_data,nexar_variables,sheet_na
 
         output_columns: list[dict[str, int]] = []
 
-        for supplier_number, supplier_column in enumerate(
-            supplier_columns,
-            start=1,
-        ):
-            supplier_header = excel_input.clean_cell(
-                headers[supplier_column]
-            )
+        for supplier_number, supplier_column in enumerate(supplier_columns,start=1):
+            supplier_header = input.clean_cell(headers[supplier_column])
 
             if not supplier_header:
-                supplier_header = (
-                    f"Supplier {supplier_number}"
-                )
+                supplier_header = (f"Supplier {supplier_number}")
 
             stock_column = (original_max_column+ ((supplier_number - 1) * 2)+ 1)
 
@@ -170,74 +150,44 @@ def write_bom_results(input_file,output_file,nexar_data,nexar_variables,sheet_na
 
             sheet.cell(row=1,column=pricing_column,).value = f"{supplier_header} Pricing"
 
-            sheet.cell(
-                row=1,
-                column=stock_column,
-            ).alignment = Alignment(
-                wrap_text=True,
-                vertical="top",
-            )
+            sheet.cell(row=1,column=stock_column,).alignment = Alignment(
+                wrap_text=True,vertical="top",)
 
-            sheet.cell(
-                row=1,
-                column=pricing_column,
-            ).alignment = Alignment(
-                wrap_text=True,
-                vertical="top",
-            )
+            sheet.cell(row=1,column=pricing_column,).alignment = Alignment(
+                wrap_text=True,vertical="top",)
 
-            sheet.column_dimensions[
-                get_column_letter(stock_column)
-            ].width = 20
+            sheet.column_dimensions[get_column_letter(stock_column)].width = 20
 
-            sheet.column_dimensions[
-                get_column_letter(pricing_column)
-            ].width = 55
+            sheet.column_dimensions[get_column_letter(pricing_column)].width = 55
 
             output_columns.append(
                 {
-                    "supplier_column": (
-                        supplier_column + 1
-                    ),
+                    "supplier_column": (supplier_column + 1),
                     "stock_column": stock_column,
                     "pricing_column": pricing_column,
                 }
             )
 
-        for excel_row_number in range(
-            2,
-            sheet.max_row + 1,
-        ):
-            mpn = excel_input.clean_cell(
-                sheet.cell(
-                    row=excel_row_number,
-                    column=mpn_column + 1,
-                ).value
+        for excel_row_number in range(2,sheet.max_row + 1,):
+            mpn = input.clean_cell(
+                sheet.cell(row=excel_row_number,column=mpn_column + 1,).value
             )
 
             if not mpn:
                 continue
 
-            match_group = match_groups_by_mpn.get(
-                mpn.casefold()
-            )
+            match_group = match_groups_by_mpn.get(mpn.casefold())
 
             if match_group:
-                part_data = {
-                    "supMultiMatch": [match_group]
-                }
+                part_data = {"supMultiMatch": [match_group]}
             else:
-                part_data = {
-                    "supMultiMatch": []
-                }
+                part_data = {"supMultiMatch": []}
 
             for output_column in output_columns:
-                supplier_name = excel_input.clean_cell(
+                supplier_name = input.clean_cell(
                     sheet.cell(
                         row=excel_row_number,
-                        column=output_column[
-                            "supplier_column"
-                        ],
+                        column=output_column["supplier_column"],
                     ).value
                 )
 
@@ -253,25 +203,17 @@ def write_bom_results(input_file,output_file,nexar_data,nexar_variables,sheet_na
 
                 stock_cell = sheet.cell(
                     row=excel_row_number,
-                    column=output_column[
-                        "stock_column"
-                    ],
+                    column=output_column["stock_column"],
                 )
 
                 pricing_cell = sheet.cell(
                     row=excel_row_number,
-                    column=output_column[
-                        "pricing_column"
-                    ],
+                    column=output_column["pricing_column"],
                 )
 
-                stock_cell.value = format_stock(
-                    supplier_results
-                )
+                stock_cell.value = format_stock(supplier_results)
 
-                pricing_cell.value = format_pricing(
-                    supplier_results
-                )
+                pricing_cell.value = format_pricing(supplier_results)
 
                 stock_cell.alignment = Alignment(
                     wrap_text=True,

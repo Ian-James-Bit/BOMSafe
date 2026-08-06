@@ -42,14 +42,10 @@ def get_access_token():
         response.raise_for_status()
 
     except requests.exceptions.Timeout as error:
-        raise RuntimeError(
-            "The connection to Nexar timed out."
-        ) from error
+        raise RuntimeError("The connection to Nexar timed out.") from error
 
     except requests.exceptions.ConnectionError as error:
-        raise RuntimeError(
-            "Could not connect to Nexar. Check your internet connection."
-        ) from error
+        raise RuntimeError("Could not connect to Nexar. Check your internet connection.") from error
 
     except requests.exceptions.HTTPError as error:
         raise RuntimeError(
@@ -61,9 +57,7 @@ def get_access_token():
     access_token = token_data.get("access_token")
 
     if not access_token:
-        raise RuntimeError(
-            "Nexar responded, but no access token was returned."
-        )
+        raise RuntimeError("Nexar responded, but no access token was returned.")
 
     expires_in = token_data.get("expires_in")
     scope = token_data.get("scope")
@@ -107,24 +101,18 @@ def execute_graphql(access_token,query,variables):
         response.raise_for_status()
 
     except requests.RequestException as error:
-        raise RuntimeError(
-            f"GraphQL request failed: {error}"
-        ) from error
+        raise RuntimeError(f"GraphQL request failed: {error}") from error
 
     response_data = response.json()
 
     # GraphQL can return HTTP 200 but still report query errors.
     if response_data.get("errors"):
-        raise RuntimeError(
-            f"GraphQL errors: {response_data['errors']}"
-        )
+        raise RuntimeError(f"GraphQL errors: {response_data['errors']}")
 
     data = response_data.get("data")
 
     if data is None:
-        raise RuntimeError(
-            "Nexar returned no data."
-        )
+        raise RuntimeError("Nexar returned no data.")
 
     return data
 

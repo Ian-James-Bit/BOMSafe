@@ -1,13 +1,10 @@
-# holds functions for reading an Excel file and extracting MPN and supplier data,
-# as well as building variables for a Nexar supMultiMatch query (request sent to API).
-
+# holds functions for reading an Excel file and extracting MPN and supplier numbers and names,
+# used to build variables for a Nexar supMultiMatch query (request sent to API).
 from pathlib import Path
 from typing import Any
-
-# for excel file reading
 from openpyxl import load_workbook
 
-# different things to call the same column header in the Excel file for retrieval purposes
+# possible header names for the columns we are searching for
 # more logic later on for symbols ect
 HEADER_ALIASES = {
     "mpn": {
@@ -40,23 +37,20 @@ def clean_cell(value):
 def normalize_header(value):
     header = clean_cell(value).casefold()
 
-    return "".join(
-        character
-        for character in header
-        if character.isalnum()
-    )
+    normalized_header = ""
 
-#Find one MPN column and all supplier columns.
+    for character in header:
+        if character.isalnum():
+            normalized_header += character
+
+    return normalized_header
+
+# Find one MPN column and all supplier columns, return their indices.
+# headers parameter is the first row of the Excel sheet which you get from the read_bom function
 def find_column_positions(headers):
+    #set to None in case no MPN or supplier columns found
     mpn_column: int | None = None
-    supplier_columns: list[int] = []
-
-    supplier_header_names = (
-        "supplier",
-        "suppliername",
-        "distributor",
-        "distributorname",
-    )
+    supplier_columns: list[int] | None = None
 
     for column_index, header in enumerate(headers):
         normalized_header = normalize_header(header)
@@ -65,29 +59,26 @@ def find_column_positions(headers):
             mpn_column = column_index
             continue
 
-        for supplier_header in supplier_header_names:
+        for supplier_header in HEADER_ALIASES["supplier"]:
             supplier_number = normalized_header.removeprefix(
                 supplier_header
             )
 
-            if (
-                normalized_header == supplier_header
-                or supplier_number.isdigit()
-            ):
+            if (normalized_header == supplier_header or supplier_number.isdigit()):
+                if supplier_columns is None:
+                    supplier_columns = []
                 supplier_columns.append(column_index)
                 break
 
     if mpn_column is None:
         raise ValueError("Could not find an MPN column.")
-
-    if not supplier_columns:
-        raise ValueError(
-            "Could not find any supplier columns."
-        )
+    if supplier_columns is None:
+        raise ValueError("Could not find any supplier columns.")
 
     return mpn_column, supplier_columns
 
-#Read MPN and supplier data from Excel sheet
+# Read MPN and supplier data from Excel sheet
+# sheet name is optional, if not provided the active sheet will be used (change to auto look at all sheets)
 def read_bom(file_path,sheet_name: str | None = None,):
     path = Path(file_path)
 
@@ -96,23 +87,19 @@ def read_bom(file_path,sheet_name: str | None = None,):
             f"Excel file does not exist: {path}"
         )
 
-    if not path.is_file():
-        raise ValueError(
-            f"The supplied path is not a file: {path}"
-        )
-
     if path.suffix.casefold() != ".xlsx":
         raise ValueError(
-            "Only .xlsx Excel files are currently supported."
+            f"The supplied path is not an Excel .xlsx file: {path}"
         )
 
-    workbook = load_workbook(
-        filename=path,
-        read_only=True,
-        data_only=True,
-    )
-
     try:
+        #excel file opened in read-only 
+        workbook = load_workbook(
+            filename=path,
+            read_only=True,
+            data_only=True,
+        )
+
         if sheet_name is None:
             sheet = workbook.active
         else:
@@ -128,7 +115,9 @@ def read_bom(file_path,sheet_name: str | None = None,):
 
             sheet = workbook[sheet_name]
 
+        # Iterator for excel rows
         rows = sheet.iter_rows(values_only=True)
+        # gets the first row of the excel sheet and updates iterator
         headers = next(rows, None)
 
         if headers is None:
@@ -138,36 +127,41 @@ def read_bom(file_path,sheet_name: str | None = None,):
 
         mpn_column, supplier_columns = find_column_positions(headers)
 
+        # dict has keys for excel row number, mpn, and suppliers (might add column to mpn and supplier changing pair to datastructure)
         bom_rows: list[dict[str, Any]] = []
 
-        for excel_row_number, row in enumerate(
-            rows,
-            start=2,
-        ):
-            mpn_value = (
-                row[mpn_column]
-                if mpn_column < len(row)
-                else None
-            )
+        # rows start at 1 but its 2 because the first row was headers
+        for excel_row_number, row in enumerate(rows,start=2):
+            if mpn_column < len(row):
+                mpn = row[mpn_column]
+            else:
+                mpn = None
 
-            mpn = clean_cell(mpn_value)
+            mpn = clean_cell(mpn)
 
+            # Keep suppliers in one list because each row may have any number of suppliers.
+            # Separate keys like supplier_1, supplier_2, etc. would make iteration harder later.
             suppliers: list[str] = []
+            # in case of duplicate suppliers in the same row
             seen_suppliers: set[str] = set()
 
             for supplier_column in supplier_columns:
-                supplier_value = (
-                    row[supplier_column]
-                    if supplier_column < len(row)
-                    else None
-                )
+                if supplier_column < len(row):
+                    supplier = row[supplier_column]
+                else:
+                    supplier = None
 
-                supplier = clean_cell(supplier_value)
+                supplier = clean_cell(supplier)
 
                 if not supplier:
                     continue
 
-                normalized_supplier = supplier.casefold()
+                # Normalize only for comparison. Keep the original supplier spelling
+                normalized_supplier = "".join(
+                    character
+                    for character in supplier.casefold()
+                    if character.isalnum()
+                )
 
                 if normalized_supplier in seen_suppliers:
                     continue
@@ -201,7 +195,7 @@ def read_bom(file_path,sheet_name: str | None = None,):
 
         if not bom_rows:
             raise ValueError(
-                "The worksheet contains no BOM data rows."
+                "The worksheet contains no relevant BOM data rows."
             )
 
         return bom_rows
@@ -209,8 +203,7 @@ def read_bom(file_path,sheet_name: str | None = None,):
     finally:
         workbook.close()
 
-# Build variables for a Nexar supMultiMatch query.
-# Duplicate MPNs are queried only once.
+# Build variables for a Nexar supMultiMatch query (avoids duplicate queries).
 def build_nexar_variables(bom_rows,result_limit: int = 1):
     if result_limit < 1:
         raise ValueError(

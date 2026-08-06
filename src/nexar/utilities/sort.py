@@ -3,11 +3,13 @@ from typing import Any
 
 #Normalize a supplier name by removing spaces and punctuation.
 def normalize_supplier_name(supplier_name):
-    return "".join(
-        character
-        for character in supplier_name.casefold()
-        if character.isalnum()
-    )
+    normalized_supplier = ""
+
+    for character in supplier_name.casefold():
+        if character.isalnum():
+            normalized_supplier += character
+
+    return normalized_supplier
 
 #get supplier stock and pricing using a supplier name.
 def get_supplier_stock_and_pricing(nexar_data,supplier_name):
@@ -38,12 +40,8 @@ def get_supplier_stock_and_pricing(nexar_data,supplier_name):
                         pricing.append(
                             {
                                 "quantity": price.get("quantity"),
-                                "unit_price": price.get(
-                                    "convertedPrice"
-                                ),
-                                "currency": price.get(
-                                    "convertedCurrency"
-                                ),
+                                "unit_price": price.get("convertedPrice"),
+                                "currency": price.get("convertedCurrency"),
                             }
                         )
 
