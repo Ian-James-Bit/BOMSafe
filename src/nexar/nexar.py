@@ -73,8 +73,17 @@ def get_access_token():
 QUERY_DIRECTORY = Path(__file__).parent / "queries"
 
 def load_query(filename):
-    query_path = QUERY_DIRECTORY / filename
-    return query_path.read_text(encoding="utf-8")
+    from pathlib import Path
+
+
+def load_query(query_file_name):
+    project_root = Path(__file__).resolve().parents[2]
+
+    query_path = (project_root/ "queries"/ query_file_name)
+
+    return query_path.read_text(
+        encoding="utf-8"
+    )
 
 PART_OFFERS_QUERY = load_query("part_offers.graphql")
 

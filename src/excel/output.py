@@ -6,7 +6,7 @@ from openpyxl import load_workbook
 from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter
 
-import excel.input as input
+from . import input as input
 import src.nexar.utilities.sort as sort
 
 #Convert supplier stock results into Excel text.
@@ -95,6 +95,7 @@ def build_match_groups_by_mpn(nexar_data,nexar_variables):
 
         match_groups_by_mpn[mpn.casefold()] = match_group
 
+    print (f"Built match groups by MPN: {match_groups_by_mpn}")
     return match_groups_by_mpn
 
 #Create a copy of the BOM with supplier stock and pricing columns.
@@ -125,14 +126,9 @@ def write_bom_results(input_file,output_file,nexar_data,nexar_variables,sheet_na
 
         headers = tuple(headers_list)
 
-        mpn_column, supplier_columns = (
-            input.find_column_positions(headers)
-        )
+        mpn_column, supplier_columns = (input.find_column_positions(headers))
 
-        match_groups_by_mpn = build_match_groups_by_mpn(
-            nexar_data=nexar_data,
-            nexar_variables=nexar_variables,
-        )
+        match_groups_by_mpn = build_match_groups_by_mpn(nexar_data=nexar_data,nexar_variables=nexar_variables)
 
         output_columns: list[dict[str, int]] = []
 
@@ -169,9 +165,7 @@ def write_bom_results(input_file,output_file,nexar_data,nexar_variables,sheet_na
             )
 
         for excel_row_number in range(2,sheet.max_row + 1,):
-            mpn = input.clean_cell(
-                sheet.cell(row=excel_row_number,column=mpn_column + 1,).value
-            )
+            mpn = input.clean_cell(sheet.cell(row=excel_row_number,column=mpn_column + 1,).value)
 
             if not mpn:
                 continue
@@ -185,10 +179,7 @@ def write_bom_results(input_file,output_file,nexar_data,nexar_variables,sheet_na
 
             for output_column in output_columns:
                 supplier_name = input.clean_cell(
-                    sheet.cell(
-                        row=excel_row_number,
-                        column=output_column["supplier_column"],
-                    ).value
+                    sheet.cell(row=excel_row_number,column=output_column["supplier_column"],).value
                 )
 
                 if not supplier_name:

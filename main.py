@@ -1,6 +1,5 @@
 import argparse
 from pathlib import Path
-
 import src.excel.input as input
 import src.excel.output as output
 import src.nexar.nexar as nexar
@@ -16,17 +15,8 @@ def get_arguments():
         type=Path,
         help="Use a previously saved Nexar JSON response instead of calling the API.",
     )
-
-    parser.add_argument(
-        "excel_file",
-        type=Path,
-        help="Path to the Excel BOM file.",
-    )
-
-    parser.add_argument(
-        "--sheet",
-        help="Optional worksheet name.",
-    )
+    parser.add_argument("excel_file",type=Path,help="Path to the Excel BOM file.",)
+    parser.add_argument("--sheet",help="Optional worksheet name.",)
 
     return parser.parse_args()
 
@@ -35,35 +25,22 @@ def main():
     arguments = get_arguments()
 
     try:
-        bom_rows = input.read_bom(
-            file_path=arguments.excel_file,
-            sheet_name=arguments.sheet,
-        )
-
+        bom_rows = input.read_bom(file_path=arguments.excel_file,sheet_name=arguments.sheet,)
         nexar_variables = input.build_nexar_variables(bom_rows=bom_rows,result_limit=1)
 
         if arguments.response_file:
-            with arguments.response_file.open(
-                "r",
-                encoding="utf-8",
-            ) as response_file:
+            with arguments.response_file.open("r",encoding="utf-8",) as response_file:
                 nexar_data = json.load(response_file)
-
         else:
             access_token = nexar.get_access_token()
-
             nexar_data = nexar.get_part_offers(access_token=access_token,variables=nexar_variables)
-
             response_file = (Path("output")/ f"{arguments.excel_file.stem}_nexar_response.json")
-
             response_file.parent.mkdir(parents=True,exist_ok=True,)
 
-            with response_file.open("w",encoding="utf-8",) as saved_response:
-                json.dump(
-                    nexar_data,
-                    saved_response,
-                    indent=2,
-                )
+            #saves api info for testing purposes so we don't have to keep calling the API
+            saved_response = response_file.open("w",encoding="utf-8",)
+            json.dump(nexar_data,saved_response,indent=2,)
+            saved_response.close()
 
             print(f"Saved Nexar response: {response_file}")
 

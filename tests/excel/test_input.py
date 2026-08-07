@@ -53,9 +53,11 @@ def test_read_bom(path):
 # TODO: add more asserts once more test excel sheets are added
 def test_build_nexar_variables(path):
     assert input.build_nexar_variables(input.read_bom(path)) == {
-    "queries": [{
-            "mpn": "1726480102",
-            "start": 0,
-            "limit": 1,
-        }]
+    "queries": [
+            {
+                "mpn": "1726480102",
+                "start": 0,
+                "limit": 1,
+            }
+        ]
     }
